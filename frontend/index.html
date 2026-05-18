@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AeroMetrics - Dashboard Analítico</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="logo">
+                <h2>AeroMetrics</h2>
+                <p>Supervisor Web</p>
+            </div>
+            <nav>
+                <ul id="menu">
+                    <li><button class="menu-btn active" data-target="dashboard">Dashboard Operacional</button></li>
+                    <li><button class="menu-btn" data-target="bi-area">Business Intelligence (BI)</button></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header>
+                <h1>Monitoramento de Atividades Operacionais</h1>
+                <div class="user-info">Bem-vindo, Supervisor</div>
+            </header>
+
+            <section id="dashboard" class="content-section active">
+                <div class="kpi-container">
+                    <div class="kpi-card">
+                        <h3>% SCM (Registros)</h3>
+                        <p id="scm-value" class="kpi-value">--%</p>
+                    </div>
+                    <div class="kpi-card">
+                        <h3>Voos em Andamento</h3>
+                        <p id="active-flights" class="kpi-value">--</p>
+                    </div>
+                    <div class="kpi-card">
+                        <h3>Metas Atingidas</h3>
+                        <p id="goals-status" class="kpi-value">--</p>
+                    </div>
+                </div>
+
+                <div class="data-panel">
+                    <h3>Últimos Registros da Pista</h3>
+                    <table id="operations-table">
+                        <thead>
+                            <tr>
+                                <th>Voo</th>
+                                <th>Aeroporto</th>
+                                <th>Status</th>
+                                <th>Tempo de Carregamento</th>
+                            </tr>
+                        </thead>
+                        <tbody id="operations-body">
+                            </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="bi-area" class="content-section hidden">
+                <div class="bi-placeholder">
+                    <h2>Área de Business Intelligence (BI)</h2>
+                    <p>Este espaço está reservado para a futura integração com plataformas externas de BI, permitindo análises aprofundadas e visualização de dados estratégicos.</p>
+                    <div class="blank-bi-frame"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
