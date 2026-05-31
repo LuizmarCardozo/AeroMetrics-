@@ -1,6 +1,5 @@
-name: AeroMetrics CI/CD
+name: AeroMetrics CI/CD Backend
 
-# Define quando a pipeline vai rodar (ao fazer push na main ou abrir um Pull Request)
 on:
   push:
     branches: [ "main" ]
@@ -8,24 +7,35 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build-and-test:
-    runs-on: ubuntu-latest # A máquina virtual do GitHub
+  test-python-api:
+    runs-on: ubuntu-latest
+    
+    # Diz para o GitHub rodar os comandos dentro da pasta backend
+    defaults:
+      run:
+        working-directory: ./backend 
 
     steps:
     # 1. Baixa o código do seu repositório
     - name: Checkout do código
       uses: actions/checkout@v3
 
-    # 2. Prepara o Node.js
-    - name: Configurar Node.js
-      uses: actions/setup-node@v3
+    # 2. Prepara o ambiente Python
+    - name: Configurar Python
+      uses: actions/setup-python@v4
       with:
-        node-version: '18.x'
+        python-version: '3.10'
 
-    # 3. Instala as dependências (o Jest)
+    # 3. Instala as dependências do requirements.txt
     - name: Instalar dependências
-      run: npm install
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
 
-    # 4. Roda os testes
-    - name: Executar Testes
-      run: npm test
+    # 4. Cria o Banco de Dados limpo para os testes usando o seu script!
+    - name: Gerar Banco de Dados de Teste
+      run: python setup_db.py
+
+    # 5. Roda os testes automatizados
+    - name: Rodar Testes da API
+      run: pytest

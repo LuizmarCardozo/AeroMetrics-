@@ -1,9 +1,14 @@
+/**
+ * Arquitetura MVC (Model-View-Controller)
+ * Sistema AeroMetrics Web + API Python (FastAPI) + Chart.js.
+ */
+
 // ==========================================
-// 1. MODEL - Representa os dados e regras de negócio
+// 1. MODEL - Dados e regras de negócio
 // ==========================================
 class AeroMetricsModel {
     constructor() {
-        // Dados simulados iniciais para o Dashboard Principal
+        // Dados rápidos para o Dashboard Principal
         this.operacoes = [
             { id: 'V-101', aeroporto: 'GRU', status: 'Concluída', tempo: '45 min' },
             { id: 'V-102', aeroporto: 'CGH', status: 'Em Andamento', tempo: '15 min' },
@@ -17,72 +22,46 @@ class AeroMetricsModel {
         };
     }
 
-    getOperacoes() {
-        return this.operacoes;
-    }
+    getOperacoes() { return this.operacoes; }
+    getIndicadores() { return this.indicadores; }
 
-    getIndicadores() {
-        return this.indicadores;
-    }
-
-    // Método assíncrono para buscar os dados reais do Banco de Dados para o BI
+    // Busca os dados diretamente da nova API Python
     async fetchDadosBI() {
         try {
-            console.log("Iniciando conexão com Aerometrics.db...");
-
-            // 1. Inicializa o sql.js
-            // Obs: Requer a tag <script> do sql-wasm.js no index.html
-            const SQL = await initSqlJs({
-                locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}`
-            });
-
-            // 2. Busca o arquivo .db (Atenção: o caminho relativo '../data/Aerometrics.db' deve estar correto)
-            // Lembre-se: Isso só funciona se você estiver usando um servidor local (ex: Live Server)
-            const response = await fetch('../data/Aerometrics.db'); 
+            // Fazendo a requisição HTTP para a API FastAPI
+            const response = await fetch('http://127.0.0.1:8000/api/bi/dados');
             
             if (!response.ok) {
-                throw new Error("Não foi possível carregar o arquivo .db. Verifique o caminho e o servidor local.");
+                throw new Error("Erro ao conectar com a API Python. Verifique se o uvicorn está rodando no terminal.");
             }
 
-            const buffer = await response.arrayBuffer();
+            const dados = await response.json();
             
-            // 3. Cria a instância do banco em memória
-            const db = new SQL.Database(new Uint8Array(buffer));
-            
-            // 4. Executa a query de BI (Ajuste "operacoes" e "status" para os nomes reais de suas tabelas/colunas)
-            // Aqui estamos simulando uma contagem de registros por status
-            const query = "SELECT status, COUNT(*) as quantidade FROM operacoes GROUP BY status";
-            const result = db.exec(query);
-
-            if (result.length > 0) {
-                return result[0]; // Retorna um objeto com { columns: [...], values: [...] }
+            if (dados.erro) {
+                throw new Error("Erro retornado pelo banco de dados: " + dados.erro);
             }
-            
-            return null; // Retorna nulo se a tabela estiver vazia
+
+            return dados;
             
         } catch (erro) {
             console.error("Erro no Model (BI):", erro);
-            throw erro; // Repassa o erro para o Controller lidar
+            throw erro; 
         }
     }
 }
 
 // ==========================================
-// 2. VIEW - Responsável pela interface do sistema
+// 2. VIEW - Interface do sistema
 // ==========================================
 class AeroMetricsView {
     constructor() {
-        // Elementos do Dashboard
         this.scmValue = document.getElementById('scm-value');
         this.activeFlights = document.getElementById('active-flights');
         this.goalsStatus = document.getElementById('goals-status');
         this.operationsBody = document.getElementById('operations-body');
 
-        // Elementos de Navegação
         this.menuButtons = document.querySelectorAll('.menu-btn');
         this.sections = document.querySelectorAll('.content-section');
-        
-        // Elemento do BI
         this.biAreaFrame = document.querySelector('.blank-bi-frame');
     }
 
@@ -107,73 +86,118 @@ class AeroMetricsView {
         });
     }
 
-    // --- Métodos específicos do BI ---
-    
+    // --- Métodos do BI ---
     renderCarregandoBI() {
-        this.biAreaFrame.innerHTML = `<div style="color: #666; font-style: italic;">Conectando ao banco de dados e processando indicadores...</div>`;
+        this.biAreaFrame.innerHTML = `<div style="color: #666; font-style: italic; text-align: center; padding: 40px;">Conectando à API Python e gerando gráficos...</div>`;
     }
 
     renderErroBI(mensagem) {
-        this.biAreaFrame.innerHTML = `<div style="color: #dc3545; font-weight: bold;">Erro ao processar BI: <br><span style="font-weight: normal">${mensagem}</span><br><br>Dica: O projeto está rodando via Live Server? A tabela 'operacoes' existe?</div>`;
+        this.biAreaFrame.innerHTML = `
+            <div style="color: #dc3545; background: #fff3f3; padding: 20px; border-radius: 8px; border-left: 4px solid #dc3545;">
+                <strong>Erro ao processar BI:</strong><br><br>
+                ${mensagem}
+            </div>
+        `;
     }
 
     renderTabelaBI(dados) {
-        if (!dados) {
-            this.biAreaFrame.innerHTML = `<div style="color: #666;">O banco de dados foi lido, mas não há dados para exibir.</div>`;
+        // Verifica se há dados retornados pela API
+        if (!dados.voos || dados.voos.length === 0) {
+            this.biAreaFrame.innerHTML = `<div style="padding: 20px; color: #666; text-align: center;">Conectado à API com sucesso, mas o banco de dados está vazio. Insira alguns voos e lançamentos para ver os gráficos.</div>`;
             return;
         }
 
-        // Constrói uma tabela HTML simples para exibir os dados do SQLite
-        let html = `
-            <div style="width: 100%; padding: 20px; text-align: left;">
-                <h3 style="margin-bottom: 15px; color: #444;">Resultados da Consulta SQL</h3>
-                <table style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                        <tr style="background-color: #f0f0f0;">
-                            ${dados.columns.map(coluna => `<th style="padding: 10px; border: 1px solid #ddd;">${coluna}</th>`).join('')}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${dados.values.map(linha => `
-                            <tr>
-                                ${linha.map(valor => `<td style="padding: 10px; border: 1px solid #ddd;">${valor}</td>`).join('')}
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
+        // Cria o HTML estruturando a área para receber os gráficos do Chart.js
+        this.biAreaFrame.innerHTML = `
+            <div style="display: flex; gap: 20px; flex-wrap: wrap; width: 100%;">
+                
+                <div style="flex: 1; min-width: 300px; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #eaeaea;">
+                    <h3 style="text-align: center; margin-bottom: 20px; color: #444; font-size: 16px;">Status dos Voos</h3>
+                    <div style="position: relative; height: 250px; width: 100%; display: flex; justify-content: center;">
+                        <canvas id="chartVoos"></canvas>
+                    </div>
+                </div>
+
+                <div style="flex: 1; min-width: 300px; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #eaeaea;">
+                    <h3 style="text-align: center; margin-bottom: 20px; color: #444; font-size: 16px;">Tempo Gasto por Serviço (Min)</h3>
+                    <div style="position: relative; height: 250px; width: 100%;">
+                        <canvas id="chartServicos"></canvas>
+                    </div>
+                </div>
+
             </div>
         `;
-        
-        this.biAreaFrame.innerHTML = html;
-        this.biAreaFrame.style.display = 'block'; // Remove estilo de placeholder flex centralizado, se necessário
+
+        // ==========================================
+        // DESENHANDO OS GRÁFICOS COM CHART.JS
+        // ==========================================
+
+        // 1. Gráfico de Voos (Rosca/Pizza)
+        const ctxVoos = document.getElementById('chartVoos').getContext('2d');
+        const labelsVoos = dados.voos.map(v => v.status.toUpperCase());
+        const valuesVoos = dados.voos.map(v => v.quantidade);
+
+        new Chart(ctxVoos, {
+            type: 'doughnut',
+            data: {
+                labels: labelsVoos,
+                datasets: [{
+                    data: valuesVoos,
+                    backgroundColor: ['#f39c12', '#00a65a', '#dd4b39', '#3c8dbc'],
+                    borderWidth: 1
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+
+        // 2. Gráfico de Serviços (Barras)
+        const ctxServicos = document.getElementById('chartServicos').getContext('2d');
+        const labelsServicos = dados.servicos.map(s => s.servico);
+        const valuesServicos = dados.servicos.map(s => s.tempo_total);
+
+        new Chart(ctxServicos, {
+            type: 'bar',
+            data: {
+                labels: labelsServicos,
+                datasets: [{
+                    label: 'Minutos Totais',
+                    data: valuesServicos,
+                    backgroundColor: '#3c8dbc',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
     }
 }
 
 // ==========================================
-// 3. CONTROLLER - Recebe requisições e processa o fluxo
+// 3. CONTROLLER - Orquestração
 // ==========================================
 class AeroMetricsController {
     constructor(model, view) {
         this.model = model;
         this.view = view;
-        this.biCarregado = false; // Flag para não recarregar o banco toda vez que clicar na aba
+        this.biCarregado = false; 
 
         this.init();
     }
 
     init() {
-        // Renderiza os dados iniciais do Dashboard principal
         this.view.renderIndicators(this.model.getIndicadores());
         this.view.renderOperationsTable(this.model.getOperacoes());
-
-        // Configura a navegação e escuta os cliques
         this.bindMenuNavigation();
     }
 
     bindMenuNavigation() {
         this.view.menuButtons.forEach(btn => {
             btn.addEventListener('click', async (e) => {
-                // Lógica visual: troca abas
                 this.view.menuButtons.forEach(b => b.classList.remove('active'));
                 this.view.sections.forEach(s => {
                     s.classList.remove('active');
@@ -187,7 +211,7 @@ class AeroMetricsController {
                 targetSection.classList.remove('hidden');
                 targetSection.classList.add('active');
 
-                // Lógica de Negócio: Se clicou na aba de BI, dispara a conexão com o banco
+                // Carrega o BI apenas quando a aba é acessada e se ainda não foi carregado
                 if (targetId === 'bi-area' && !this.biCarregado) {
                     await this.carregarBI();
                 }
@@ -197,27 +221,17 @@ class AeroMetricsController {
 
     async carregarBI() {
         this.view.renderCarregandoBI();
-        
         try {
-            // Solicita os dados ao Model
             const dadosBI = await this.model.fetchDadosBI();
-            
-            // Pede para a View mostrar os dados
-            this.view.renderTabelaBI(dadosBI);
-            
-            // Marca como carregado para não fazer a requisição de novo na mesma sessão
+            this.view.renderTabelaBI(dadosBI); // Agora desenha gráficos reais!
             this.biCarregado = true; 
-            
         } catch (erro) {
             this.view.renderErroBI(erro.message);
         }
     }
 }
 
-// ==========================================
-// INICIALIZAÇÃO DA APLICAÇÃO
-// ==========================================
+// Inicialização
 document.addEventListener('DOMContentLoaded', () => {
-    // Instancia os componentes conectando-os
     const app = new AeroMetricsController(new AeroMetricsModel(), new AeroMetricsView());
 });
