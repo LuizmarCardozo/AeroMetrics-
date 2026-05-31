@@ -1,0 +1,24 @@
+{
+  "name": "aerometrics-",
+  "version": "1.0.0",
+  "description": "O **AeroManager** é uma plataforma robusta projetada para otimizar o fluxo operacional em aeroportos, permitindo o acompanhamento em tempo real de voos, atendimentos em solo e métricas de desempenho. O sistema integra desde a infraestrutura geográfica até o controle detalhado de lançamentos de serviços por colaboradores.",
+  "main": "index.js",
+  "scripts": {
+  "test": "jest"
+},  
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LuizmarCardozo/AeroMetrics-.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/LuizmarCardozo/AeroMetrics-/issues"
+  },
+  "homepage": "https://github.com/LuizmarCardozo/AeroMetrics-#readme",
+  "devDependencies": {
+    "jest": "^30.4.2"
+  }
+}
