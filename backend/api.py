@@ -14,44 +14,44 @@ app.add_middleware(
 )
 
 def conectar_banco():
-    # Descobre a pasta atual onde está o api.py (pasta backend)
     diretorio_atual = os.path.dirname(os.path.abspath(__file__))
-    # Volta uma pasta e entra na pasta data
     caminho_banco = os.path.join(diretorio_atual, "..", "data", "Aerometrics.db")
-    
-    # Conecta usando o caminho absoluto garantido
     conn = sqlite3.connect(caminho_banco)
     conn.row_factory = sqlite3.Row 
     return conn
 
-@app.get("/")
-def read_root():
-    return {"mensagem": "API do AeroMetrics está rodando com sucesso!"}
-
-@app.get("/api/bi/dados")
-def obter_dados_bi():
+@app.get("/api/relatorios/geral")
+def obter_relatorio_geral():
     try:
         conn = conectar_banco()
         cursor = conn.cursor()
 
-        # Análise 1: Status dos Voos
-        cursor.execute("SELECT status, COUNT(id) as quantidade FROM voo GROUP BY status")
-        voos = [dict(row) for row in cursor.fetchall()]
-
-        # Análise 2: Tempo Gasto por Tipo de Serviço
-        cursor.execute("""
-            SELECT ts.nome as servico, SUM(l.duracao_min) as tempo_total
-            FROM lancamento l
-            JOIN tipo_servico ts ON l.tipo_servico_id = ts.id
-            GROUP BY ts.nome
-        """)
-        servicos = [dict(row) for row in cursor.fetchall()]
-
+        # Traz os dados unindo aeroporto e os registros
+        query = """
+            SELECT 
+                a.regiao, a.pais, a.sigla, a.responsavel,
+                r.scm_day_before, r.scm_yesterday, r.voos_diarios,
+                r.fsc_desktop, r.fsc_mobile
+            FROM aeroporto a
+            JOIN relatorio_operacional r ON a.sigla = r.aeroporto_sigla
+            ORDER BY a.sigla
+        """
+        cursor.execute(query)
+        dados = [dict(row) for row in cursor.fetchall()]
         conn.close()
 
+        # Calcula os totais do LATAM/BRAZIL para o rodapé
+        total_voos = sum(d['voos_diarios'] for d in dados)
+        media_desktop = sum(d['fsc_desktop'] for d in dados) / len(dados) if dados else 0
+        media_mobile = sum(d['fsc_mobile'] for d in dados) / len(dados) if dados else 0
+
         return {
-            "voos": voos,
-            "servicos": servicos
+            "aeroportos": dados,
+            "totais": {
+                "voos": total_voos,
+                "desktop": round(media_desktop, 1),
+                "mobile": round(media_mobile, 1)
+            }
         }
     except Exception as e:
         return {"erro": str(e)}

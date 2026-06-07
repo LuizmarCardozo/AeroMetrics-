@@ -7,6 +7,63 @@
     <link rel="stylesheet" href="styles.css">
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <style>
+        /* Estilos para os controles de visualização do BI */
+        .view-controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            width: 100%;
+        }
+        .view-toggle-btn {
+            padding: 8px 16px;
+            border: 1px solid #3c8dbc;
+            background-color: #fff;
+            color: #3c8dbc;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .view-toggle-btn.active {
+            background-color: #3c8dbc;
+            color: #fff;
+        }
+        .view-toggle-btn:hover:not(.active) {
+            background-color: #e9f2f9;
+        }
+        .btn-success {
+            border-color: #28a745 !important;
+            color: #28a745 !important;
+        }
+        .btn-success:hover {
+            background-color: #e8f5e9 !important;
+            color: #1b5e20 !important;
+        }
+
+        /* 🚀 NOVOS ESTILOS: Exclusivos para organizar e embelezar o PDF */
+        .pdf-export-mode {
+            background-color: #ffffff;
+            padding: 10px;
+        }
+        .pdf-export-mode .data-panel {
+            box-shadow: none !important; /* Remove sombras no PDF para ficar mais limpo */
+            border: 1px solid #dddddd !important;
+            page-break-inside: avoid; /* Evita que uma tabela seja cortada ao meio */
+            margin-bottom: 25px !important;
+        }
+        .pdf-export-mode #report-content-charts {
+            page-break-before: always; /* Força os gráficos a irem para a Página 2 limpa */
+            padding-top: 20px;
+        }
+        .pdf-export-mode h3 {
+            font-size: 14px !important;
+        }
+    </style>
 </head>
 <body>
     <div class="app-container">
@@ -18,7 +75,7 @@
             <nav>
                 <ul id="menu">
                     <li><button class="menu-btn active" data-target="dashboard">Dashboard Operacional</button></li>
-                    <li><button class="menu-btn" data-target="bi-area">Business Intelligence (BI)</button></li>
+                    <li><button class="menu-btn" data-target="bi-area">Relatório de SCM (BI)</button></li>
                 </ul>
             </nav>
         </aside>
@@ -47,13 +104,13 @@
 
                 <div class="data-panel">
                     <h3>Últimos Registros da Pista</h3>
-                    <table id="operations-table">
+                    <table id="operations-table" style="width: 100%; border-collapse: collapse; text-align: left;">
                         <thead>
-                            <tr>
-                                <th>Voo</th>
-                                <th>Aeroporto</th>
-                                <th>Status</th>
-                                <th>Tempo de Carregamento</th>
+                            <tr style="background-color: #f9fafc; color: #666; border-bottom: 1px solid #eee;">
+                                <th style="padding: 12px;">Voo</th>
+                                <th style="padding: 12px;">Aeroporto</th>
+                                <th style="padding: 12px;">Status</th>
+                                <th style="padding: 12px;">Tempo</th>
                             </tr>
                         </thead>
                         <tbody id="operations-body">
@@ -63,14 +120,90 @@
             </section>
 
             <section id="bi-area" class="content-section hidden">
-                <div class="bi-placeholder">
-                    <h2>Área de Business Intelligence (BI)</h2>
-                    <div class="blank-bi-frame"></div>
+                
+                <div id="loading-message" style="display: none; color: #666; font-style: italic; text-align: center; padding: 20px;">
+                    A carregar dados da API...
                 </div>
-            </section>
+                <div id="error-message" style="display: none; color: red; text-align: center; padding: 20px;"></div>
+
+                <div id="view-controls" class="view-controls" style="display: none;">
+                    <button id="btn-show-tables" class="view-toggle-btn active">📊 Visualizar em Tabelas</button>
+                    <button id="btn-show-charts" class="view-toggle-btn">📈 Visualizar em Gráficos</button>
+                    <button id="btn-export-pdf" class="view-toggle-btn btn-success" style="margin-left: auto;">📥 Exportar em PDF</button>
+                </div>
+
+                <div id="pdf-report-container">
+                    
+                    <div id="pdf-header-title" style="display: none; margin-bottom: 20px; border-bottom: 3px solid #1a222c; padding-bottom: 10px;">
+                        <h2 style="color: #1a222c; margin: 0;">AeroMetrics - Business Intelligence Report</h2>
+                        <p style="color: #666; margin: 5px 0 0 0; font-size: 13px;">Relatório Operacional Consolidado de Desempenho Aeroportuário (% SCM)</p>
+                    </div>
+
+                    <div id="report-content-tables" style="display: none;">
+                        <div class="data-panel" style="margin-bottom: 30px; background: #fff; padding: 20px; border-radius: 8px;">
+                            <h3 style="margin-bottom: 15px; border-bottom: 2px solid #3c8dbc; padding-bottom: 5px; color: #444;">
+                                Desempenho de Registro Operacional (% SCM) - <span style="color: #666; font-size: 14px; font-weight: normal;">Objetivo target >85%</span>
+                            </h3>
+                            <table style="width: 100%; border-collapse: collapse; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                <thead>
+                                    <tr style="background-color: #dcdcdc; color: #333;">
+                                        <th style="padding: 10px; border: 1px solid #ccc; font-size: 12px;">REGION</th>
+                                        <th style="padding: 10px; border: 1px solid #ccc; font-size: 12px;">COUNTRY</th>
+                                        <th style="padding: 10px; border: 1px solid #ccc; font-size: 12px;">AIRPORT</th>
+                                        <th style="padding: 10px; border: 1px solid #ccc; font-size: 12px;">% SCM DAY BEFORE</th>
+                                        <th style="padding: 10px; border: 1px solid #ccc; font-size: 12px;">% SCM YESTERDAY</th>
+                                        <th style="padding: 10px; border: 1px solid #ccc; font-size: 12px;">DAILY FLIGHTS</th>
+                                        <th style="padding: 10px; border: 1px solid #ccc; font-size: 12px;">Responsável</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="scm-tbody">
+                                    </tbody>
+                            </table>
+                        </div>
+
+                        <div class="data-panel" style="background: #fff; padding: 20px; border-radius: 8px;">
+                            <h3 style="margin-bottom: 15px; border-bottom: 2px solid #3c8dbc; padding-bottom: 5px; color: #444;">
+                                Plataforma de Lançamento (Desktop vs Mobile)
+                            </h3>
+                            <table style="width: 100%; border-collapse: collapse; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                <thead>
+                                    <tr style="background-color: #f4f6f9; color: #555;">
+                                        <th style="padding: 10px; border: 1px solid #eee; text-align: left; font-size: 12px;">AIRPORT</th>
+                                        <th style="padding: 10px; border: 1px solid #eee; font-size: 12px;">% FSC DESKTOP</th>
+                                        <th style="padding: 10px; border: 1px solid #eee; font-size: 12px;">% MOBILE</th>
+                                        <th style="padding: 10px; border: 1px solid #eee; font-size: 12px;">DAILY FLIGHTS</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="platform-tbody">
+                                    </tbody>
+                                <tfoot id="platform-tfoot" style="background-color: #e9ecef; font-weight: bold; text-align: center;">
+                                    </tfoot>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="report-content-charts" style="display: none; gap: 20px; flex-wrap: wrap; margin-top: 20px;">
+                        
+                        <div class="data-panel" style="flex: 1; min-width: 400px; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #eee;">
+                            <h3 style="text-align: center; margin-bottom: 20px; color: #444; font-size: 16px;">Desempenho de Registro (% SCM Yesterday)</h3>
+                            <div style="position: relative; height: 280px; width: 100%;">
+                                <canvas id="chart-scm"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="data-panel" style="flex: 1; min-width: 400px; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #eee;">
+                            <h3 style="text-align: center; margin-bottom: 20px; color: #444; font-size: 16px;">Uso de Plataforma (Desktop vs Mobile)</h3>
+                            <div style="position: relative; height: 280px; width: 100%;">
+                                <canvas id="chart-platform"></canvas>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div> </section>
         </main>
     </div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+
     <script src="app.js"></script>
 </body>
 </html>

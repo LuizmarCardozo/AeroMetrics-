@@ -1,151 +1,61 @@
 import sqlite3
 import os
 
-# 1. Define o caminho exato para a pasta 'data' (mesma lógica da sua API)
 diretorio_atual = os.path.dirname(os.path.abspath(__file__))
 pasta_data = os.path.join(diretorio_atual, "..", "data")
 caminho_banco = os.path.join(pasta_data, "Aerometrics.db")
-
-# Garante que a pasta 'data' existe
 os.makedirs(pasta_data, exist_ok=True)
 
-print(f"🛠️ Criando/Atualizando o banco de dados em: {caminho_banco}")
-
-# 2. Conecta ao banco (isso já cria o arquivo .db fisicamente se ele não existir)
 conn = sqlite3.connect(caminho_banco)
 cursor = conn.cursor()
 
-# 3. Executa o Script SQL completo (Criação de Tabelas + Inserção de Dados)
 script_sql = """
--- ========================================================
--- LIMPEZA INICIAL: Remove as tabelas antigas se existirem
--- ========================================================
-DROP TABLE IF EXISTS lancamento;
-DROP TABLE IF EXISTS atendimento;
-DROP TABLE IF EXISTS voo;
-DROP TABLE IF EXISTS meta_operacional;
-DROP TABLE IF EXISTS tipo_servico;
-DROP TABLE IF EXISTS usuario;
+DROP TABLE IF EXISTS relatorio_operacional;
 DROP TABLE IF EXISTS aeroporto;
-DROP TABLE IF EXISTS regiao;
-DROP TABLE IF EXISTS pais;
 
--- ========================================================
--- CRIAÇÃO DAS TABELAS (Estrutura SQLite)
--- ========================================================
-CREATE TABLE pais (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nome VARCHAR(100) NOT NULL,
-    codigo_iso CHAR(2) UNIQUE NOT NULL
-);
-
-CREATE TABLE regiao (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    pais_id INTEGER REFERENCES pais(id),
-    nome VARCHAR(100) NOT NULL
-);
-
+-- Tabela de Aeroportos e Responsáveis
 CREATE TABLE aeroporto (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    regiao_id INTEGER REFERENCES regiao(id),
-    nome VARCHAR(150) NOT NULL,
-    codigo_iata CHAR(3) UNIQUE NOT NULL,
-    cidade VARCHAR(100),
-    ativo BOOLEAN DEFAULT TRUE
+    sigla CHAR(3) PRIMARY KEY,
+    regiao VARCHAR(50),
+    pais VARCHAR(50),
+    responsavel VARCHAR(100)
 );
 
-CREATE TABLE usuario (
+-- Tabela do 2º Passo (Dados capturados do App/Desktop)
+CREATE TABLE relatorio_operacional (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    aeroporto_id INTEGER REFERENCES aeroporto(id),
-    nome VARCHAR(150) NOT NULL,
-    email VARCHAR(150) UNIQUE NOT NULL,
-    senha_hash TEXT NOT NULL,
-    perfil VARCHAR(20) CHECK (perfil IN ('colaborador', 'supervisor', 'gerente', 'admin')),
-    ativo BOOLEAN DEFAULT TRUE,
-    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    aeroporto_sigla CHAR(3) REFERENCES aeroporto(sigla),
+    data_registro DATE,
+    voos_diarios INTEGER,
+    scm_day_before DECIMAL(5,2),
+    scm_yesterday DECIMAL(5,2),
+    fsc_desktop DECIMAL(5,2),
+    fsc_mobile DECIMAL(5,2)
 );
 
-CREATE TABLE tipo_servico (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nome VARCHAR(100) NOT NULL,
-    descricao TEXT,
-    ativo BOOLEAN DEFAULT TRUE
-);
+-- Inserindo a base de Aeroportos (Igual à imagem)
+INSERT INTO aeroporto (sigla, regiao, pais, responsavel) VALUES 
+('BSB', 'LATAM', 'BRAZIL', 'Ricardo Manoel'),
+('CGH', 'LATAM', 'BRAZIL', 'Lucas Delfino'),
+('GIG', 'LATAM', 'BRAZIL', 'Lasaro Correia'),
+('GRU', 'LATAM', 'BRAZIL', 'Karina Freire'),
+('SDU', 'LATAM', 'BRAZIL', 'Victor Nunes'),
+('SSA', 'LATAM', 'BRAZIL', 'Claudio Pereira'),
+('VIX', 'LATAM', 'BRAZIL', 'Nayara Vetorin');
 
-CREATE TABLE meta_operacional (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    aeroporto_id INTEGER REFERENCES aeroporto(id),
-    percentual_meta DECIMAL(5,2) NOT NULL,
-    vigencia_inicio DATE NOT NULL,
-    vigencia_fim DATE NOT NULL
-);
-
-CREATE TABLE voo (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    aeroporto_id INTEGER REFERENCES aeroporto(id),
-    numero_voo VARCHAR(20) NOT NULL,
-    companhia VARCHAR(100),
-    data_voo DATE NOT NULL,
-    hora_prevista TIME,
-    hora_real TIME,
-    status VARCHAR(20) DEFAULT 'previsto',
-    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE atendimento (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    voo_id INTEGER REFERENCES voo(id),
-    usuario_id INTEGER REFERENCES usuario(id),
-    inicio TIMESTAMP,
-    fim TIMESTAMP,
-    status VARCHAR(20),
-    observacoes TEXT
-);
-
-CREATE TABLE lancamento (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    atendimento_id INTEGER REFERENCES atendimento(id),
-    tipo_servico_id INTEGER REFERENCES tipo_servico(id),
-    usuario_id INTEGER REFERENCES usuario(id),
-    data_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    duracao_min INTEGER,
-    maquinas_utilizadas TEXT,
-    origem VARCHAR(20) DEFAULT 'app_mobile',
-    observacoes TEXT
-);
-
--- ========================================================
--- INSERÇÃO DE DADOS DE TESTE (Para o BI e Gráficos)
--- ========================================================
-INSERT INTO tipo_servico (nome, descricao) VALUES ('Abastecimento', 'Abastecimento de combustível');
-INSERT INTO tipo_servico (nome, descricao) VALUES ('Bagagem', 'Carga e descarga de malas');
-INSERT INTO tipo_servico (nome, descricao) VALUES ('Limpeza', 'Limpeza interna da aeronave');
-
-INSERT INTO aeroporto (nome, codigo_iata) VALUES ('Guarulhos', 'GRU');
-
--- Inserindo Voos com status variados para o gráfico de pizza
-INSERT INTO voo (aeroporto_id, numero_voo, status, data_voo) VALUES (1, 'G3-1001', 'Atrasado', '2026-05-31');
-INSERT INTO voo (aeroporto_id, numero_voo, status, data_voo) VALUES (1, 'G3-1002', 'Concluída', '2026-05-31');
-INSERT INTO voo (aeroporto_id, numero_voo, status, data_voo) VALUES (1, 'G3-1003', 'Concluída', '2026-05-31');
-INSERT INTO voo (aeroporto_id, numero_voo, status, data_voo) VALUES (1, 'G3-1004', 'Em Andamento', '2026-05-31');
-INSERT INTO voo (aeroporto_id, numero_voo, status, data_voo) VALUES (1, 'G3-1005', 'Em Andamento', '2026-05-31');
-
--- Inserindo Atendimentos
-INSERT INTO atendimento (voo_id, status) VALUES (2, 'finalizado');
-INSERT INTO atendimento (voo_id, status) VALUES (3, 'finalizado');
-
--- Inserindo Lançamentos de tempo para o gráfico de barras
-INSERT INTO lancamento (atendimento_id, tipo_servico_id, duracao_min) VALUES (1, 1, 45);
-INSERT INTO lancamento (atendimento_id, tipo_servico_id, duracao_min) VALUES (1, 2, 30);
-INSERT INTO lancamento (atendimento_id, tipo_servico_id, duracao_min) VALUES (2, 1, 50);
-INSERT INTO lancamento (atendimento_id, tipo_servico_id, duracao_min) VALUES (2, 3, 25);
+-- Inserindo os dados capturados simulando o fechamento do dia
+INSERT INTO relatorio_operacional (aeroporto_sigla, data_registro, voos_diarios, scm_day_before, scm_yesterday, fsc_desktop, fsc_mobile) VALUES 
+('BSB', '2026-03-05', 250, 90.2, 89.6, 33.0, 87.3),
+('CGH', '2026-03-05', 348, 92.1, 93.9, 16.2, 92.6),
+('GIG', '2026-03-05', 213, 90.1, 98.0, 13.6, 91.4),
+('GRU', '2026-03-05', 68,  97.0, 88.2, 11.0, 89.0),
+('SDU', '2026-03-05', 143, 99.4, 98.7, 24.9, 97.7),
+('SSA', '2026-03-05', 41,  100.0, 100.0, 5.7, 99.2),
+('VIX', '2026-03-05', 51,  93.9, 97.2, 11.1, 88.9);
 """
 
-# Executa todo o script acima
 cursor.executescript(script_sql)
-
-# Salva as alterações e fecha a conexão
 conn.commit()
 conn.close()
 
-print("✅ Banco de dados criado e populado com sucesso!")
+print("✅ Banco atualizado com os dados do Relatório de SCM!")
